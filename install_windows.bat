@@ -47,6 +47,6 @@ set /p "PIN=Enter PIN: "
 ) > "%installDir%\config.conf"
 
 :: Add the program as a service that starts automatically
-sc create nw-agent binPath= "cmd /K %installDir%\lib\netwatcher-agent.exe" start= auto
+sc create netwatcher-agent binPath= "cmd /K %installDir%\lib\netwatcher-agent.exe" start= auto
 
 echo Installation and configuration completed.
