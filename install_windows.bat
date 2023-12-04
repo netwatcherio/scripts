@@ -6,47 +6,50 @@ for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Ses
     set "arch=%%b"
 )
 
-:: Set the download URL based on architecture
+:: Set the download URL for the main .exe and libraries based on architecture
 if "%arch%"=="AMD64" (
-    set "downloadUrl=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/windows_dev-v1.0.5-x86_64.zip"
+    set "mainExeUrl=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/netwatcher-agent_x64.exe"
+    set "lib1Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/trip_windows-x86_64.exe"
+    set "lib2Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/rperf_windows-x86_64.exe"
 ) else (
-    set "downloadUrl=https://github.com/netwatcherio/netwatcher-agent/releases/latest/download/netwatcher-agent_windows-386.zip"
+    set "mainExeUrl=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/netwatcher-agent_x64.exe"
+    set "lib1Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/trip_windows-x86_64.exe"
+    set "lib2Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/rperf_windows-x86_64.exe"
 )
 
-:: Create the installation directory if it doesn't exist
+:: Create the installation and lib directories if they don't exist
 set "installDir=C:\netwatcher-agent"
+set "libDir=%installDir%\lib"
 if not exist "%installDir%" (
     mkdir "%installDir%"
 )
+if not exist "%libDir%" (
+    mkdir "%libDir%"
+)
 
-:: Download the latest release .zip
-powershell -command "(New-Object System.Net.WebClient).DownloadFile('%downloadUrl%', '%installDir%\netwatcher-agent.zip')"
+:: Download the main .exe
+powershell -command "(New-Object System.Net.WebClient).DownloadFile('%mainExeUrl%', '%installDir%\netwatcher-agent.exe')"
 
-:: Unzip and copy the 'lib' folder from the downloaded .zip file
-powershell -command "Expand-Archive -Path '%installDir%\netwatcher-agent.zip' -DestinationPath '%installDir%' -Force"
+:: Download the required libraries
+powershell -command "(New-Object System.Net.WebClient).DownloadFile('%lib1Url%', '%libDir%\trip_windows-x86_64.exe')"
+powershell -command "(New-Object System.Net.WebClient).DownloadFile('%lib2Url%', '%libDir%\rperf_windows-x86_64.exe')"
 
-:: Remove the downloaded .zip file
-del "%installDir%\netwatcher-agent.zip"
+:: Continue with the rest of your script for configuration and service setup...
 
-:: Set default options for configuration
-set "HOST=https://api.netwatcher.io"
-set "HOST_WS=wss://api.netwatcher.io/agent_ws"
-
-:: Prompt the user for configuration input
-set /p "HOST=Enter HOST (default: %HOST%): " || set "HOST=%HOST%"
-set /p "HOST_WS=Enter HOST_WS (default: %HOST_WS%): " || set "HOST_WS=%HOST_WS%"
-set /p "ID=Enter ID: "
-set /p "PIN=Enter PIN: "
-
-:: Create the config.conf file
+:: Create an uninstaller batch script
 (
-    echo HOST=%HOST%
-    echo HOST_WS=%HOST_WS%
-    echo ID=%ID%
-    echo PIN=%PIN%
-) > "%installDir%\config.conf"
-
-:: Add the program as a service that starts automatically
-sc create netwatcher-agent binPath= "cmd /K %installDir%\lib\netwatcher-agent.exe" start= auto
+echo @echo off
+echo setlocal
+echo sc stop netwatcher-agent
+echo sc delete netwatcher-agent
+echo netsh advfirewall firewall delete rule name="NetWatcher ICMP In"
+echo netsh advfirewall firewall delete rule name="NetWatcher ICMP Out"
+echo del "%installDir%\netwatcher-agent.exe"
+echo del "%libDir%\rperf_windows-x86_64.exe"
+echo del "%libDir%\trip_windows-x86_64.exe"
+echo rmdir "%libDir%"
+echo del "%installDir%\uninstaller.bat"
+echo echo Uninstallation complete.
+) > "%installDir%\uninstaller.bat"
 
 echo Installation and configuration completed.
