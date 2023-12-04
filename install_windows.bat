@@ -8,7 +8,7 @@ for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Ses
 
 :: Set the download URL based on architecture
 if "%arch%"=="AMD64" (
-    set "downloadUrl=https://github.com/netwatcherio/netwatcher-agent/releases/latest/download/netwatcher-agent_windows-amd64.zip"
+    set "downloadUrl=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/windows_dev-v1.0.5-x86_64.zip"
 ) else (
     set "downloadUrl=https://github.com/netwatcherio/netwatcher-agent/releases/latest/download/netwatcher-agent_windows-386.zip"
 )
