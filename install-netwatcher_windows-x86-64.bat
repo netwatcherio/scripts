@@ -80,47 +80,51 @@ echo Creating the firewall rules for ICMP...
 netsh advfirewall firewall add rule name="NetWatcher ICMP In" protocol=icmpv4:8,any dir=in action=allow
 netsh advfirewall firewall add rule name="NetWatcher ICMP Out" protocol=icmpv4:any,any dir=out action=allow
 
+echo Creating startsvc_nw.bat file...
+echo @echo off > %installDir%\startsvc_nw.bat
+echo set "installDir=C:\netwatcher-agent" >> %installDir%\startsvc_nw.bat
+echo echo Starting NetWatcher Agent... >> %installDir%\startsvc_nw.bat
+echo net start netwatcher-agent >> %installDir%\startsvc_nw.bat
+echo pause >> %installDir%\startsvc_nw.bat
+
+echo Creating start_nw.bat file...
+echo @echo off > %installDir%\start_nw.bat
+echo title NetWatcher Agent - Network Performance Monitoring >> %installDir%\start_nw.bat
+echo set "installDir=C:\netwatcher-agent" >> %installDir%\start_nw.bat
+echo echo Starting NetWatcher Agent... >> %installDir%\start_nw.bat
+echo cd %installDir% >> %installDir%\start_nw.bat
+echo %installDir%\netwatcher-agent.exe >> %installDir%\start_nw.bat
+echo pause >> %installDir%\start_nw.bat
+
+echo Creating stop_nw.bat file...
+echo @echo off > %installDir%\stop_nw.bat
+echo set "installDir=C:\netwatcher-agent" >> %installDir%\stop_nw.bat
+echo echo Stopping NetWatcher Agent... >> %installDir%\stop_nw.bat
+echo net stop netwatcher-agent >> %installDir%\stop_nw.bat
+echo pause >> %installDir%\stop_nw.bat
+
+echo Creating uninstall_nw.bat file...
+echo @echo off > %installDir%\uninstall_nw.bat
+echo set "installDir=C:\netwatcher-agent" >> %installDir%\uninstall_nw.bat
+echo echo Uninstalling NetWatcher Agent... >> %installDir%\uninstall_nw.bat
+echo net stop netwatcher-agent >> %installDir%\uninstall_nw.bat
+echo sc stop netwatcher-agent >> %installDir%\uninstall_nw.bat
+echo sc delete netwatcher-agent >> %installDir%\uninstall_nw.bat
+echo del "%installDir%\netwatcher-agent.exe" >> %installDir%\uninstall_nw.bat
+echo del "%installDir%\config.conf" >> %installDir%\uninstall_nw.bat
+echo del "%installDir%\start_nw.bat" >> %installDir%\uninstall_nw.bat
+echo del "%installDir%\stop_nw.bat" >> %installDir%\uninstall_nw.bat
+echo rmdir "%installDir%\lib" /s /q >> %installDir%\uninstall_nw.bat
+echo rmdir "%installDir%" /s /q >> %installDir%\uninstall_nw.bat
+echo echo Removing firewall rules for ICMP... >> %installDir%\uninstall_nw.bat
+echo netsh advfirewall firewall delete rule name="NetWatcher ICMP In" protocol=icmpv4:8,any dir=in >> %installDir%\uninstall_nw.bat
+echo netsh advfirewall firewall delete rule name="NetWatcher ICMP Out" protocol=icmpv4:any,any dir=out >> %installDir%\uninstall_nw.bat
+echo echo Uninstallation completed. >> %installDir%\uninstall_nw.bat
+echo pause >> %installDir%\uninstall_nw.bat
+
 echo Creating the NetWatcher Agent service...
 :: Add the program as a service that starts automatically and runs start.bat
-sc create netwatcher-agent binPath= "cmd /c %installDir%\start.bat" start= demand
-
-echo Creating start.bat file...
-:: Create start.bat file
-(
-    @echo off
-    cd %installDir%
-    echo Starting NetWatcher Agent...
-    net start netwatcher-agent
-) > "%installDir%\start.bat"
-
-echo Creating start.bat file...
-:: Create start.bat file
-(
-    @echo off
-    cd %installDir%
-    echo Stopping NetWatcher Agent...
-    net stop netwatcher-agent
-) > "%installDir%\stop.bat"
-
-echo Creating uninstall.bat file...
-(
-    @echo off
-	echo Uninstalling NetWatcher Agent...
-	net stop netwatcher-agent
-	sc delete netwatcher-agent
-	del "%installDir%\netwatcher-agent.exe"
-	del "%installDir%\config.conf"
-	del "%installDir%\start.bat"
-	del "%installDir%\stop.bat"
-	rmdir "%installDir%\lib" /s /q
-	rmdir "%installDir%" /s /q
-
-	echo Removing firewall rules for ICMP...
-	netsh advfirewall firewall delete rule name="NetWatcher ICMP In" protocol=icmpv4:8,any dir=in
-	netsh advfirewall firewall delete rule name="NetWatcher ICMP Out" protocol=icmpv4:any,any dir=out
-
-	echo Uninstallation completed.
-) > "%installDir%\stop.bat"
+sc create netwatcher-agent binPath= "cmd /c %installDir%\start_nw.bat" start= auto
 
 echo Installation and configuration completed.
 pause
