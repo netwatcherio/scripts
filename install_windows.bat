@@ -1,55 +1,97 @@
 @echo off
 setlocal
 
+echo Determining system architecture...
 :: Determine the system architecture
 for /f "tokens=2*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v PROCESSOR_ARCHITECTURE') do (
     set "arch=%%b"
 )
+echo System architecture is %arch%.
 
+echo Setting download URL based on architecture...
+:: Set the download URL based on architecture
 :: Set the download URL for the main .exe and libraries based on architecture
 if "%arch%"=="AMD64" (
-    set "mainExeUrl=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/netwatcher-agent_x64.exe"
-    set "lib1Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/trip_windows-x86_64.exe"
-    set "lib2Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/rperf_windows-x86_64.exe"
+    set "mainExeUrl=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/netwatcher-agent.exe"
+    set "lib1Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/rperf_windows-x86_64.exe"
+    set "lib2Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/trip_windows-x86_64.exe"
 ) else (
-    set "mainExeUrl=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/netwatcher-agent_x64.exe"
-    set "lib1Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/trip_windows-x86_64.exe"
-    set "lib2Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/rperf_windows-x86_64.exe"
+    set "mainExeUrl=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/netwatcher-agent.exe"
+    set "lib1Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/rperf_windows-x86_64.exe"
+    set "lib2Url=https://github.com/netwatcherio/netwatcher-agent/releases/download/v1.0.5/trip_windows-x86_64.exe"
 )
 
-:: Create the installation and lib directories if they don't exist
+echo Creating installation directory...
+:: Create the installation directory if it doesn't exist
 set "installDir=C:\netwatcher-agent"
-set "libDir=%installDir%\lib"
 if not exist "%installDir%" (
     mkdir "%installDir%"
 )
+
+:: Create the installation and lib directories if they don't exist
+echo Creating library directory...
+set "libDir=%installDir%\lib"
 if not exist "%libDir%" (
     mkdir "%libDir%"
 )
 
-:: Download the main .exe
+echo Downloading NetWatcher Agent...
+:: Download the main .exe with error checking and retries
+:download_main_exe
 powershell -command "(New-Object System.Net.WebClient).DownloadFile('%mainExeUrl%', '%installDir%\netwatcher-agent.exe')"
+if %errorlevel% neq 0 (
+    echo Download failed. Retrying...
+    timeout /t 5
+    goto download_main_exe
+)
 
-:: Download the required libraries
-powershell -command "(New-Object System.Net.WebClient).DownloadFile('%lib1Url%', '%libDir%\trip_windows-x86_64.exe')"
-powershell -command "(New-Object System.Net.WebClient).DownloadFile('%lib2Url%', '%libDir%\rperf_windows-x86_64.exe')"
+echo Downloading NetWatcher Agent Libraries...
+:: Download the required libraries with error checking and retries
+:download_libraries
+powershell -command "(New-Object System.Net.WebClient).DownloadFile('%lib1Url%', '%libDir%\rperf_windows-x86_64.exe')"
+powershell -command "(New-Object System.Net.WebClient).DownloadFile('%lib2Url%', '%libDir%\trip_windows-x86_64.exe')"
+if %errorlevel% neq 0 (
+    echo Download failed. Retrying...
+    timeout /t 5
+    goto download_libraries
+)
 
-:: Continue with the rest of your script for configuration and service setup...
+echo Setting up configuration...
+:: Set default options for configuration
+set "HOST=https://api.netwatcher.io"
+set "HOST_WS=wss://api.netwatcher.io/agent_ws"
 
-:: Create an uninstaller batch script
+:: Prompt the user for configuration input
+set /p "HOST=Enter HOST (default: %HOST%): " || set "HOST=%HOST%"
+set /p "HOST_WS=Enter HOST_WS (default: %HOST_WS%): " || set "HOST_WS=%HOST_WS%"
+set /p "ID=Enter ID: "
+set /p "PIN=Enter PIN: "
+
+:: Create the config.conf file
 (
-echo @echo off
-echo setlocal
-echo sc stop netwatcher-agent
-echo sc delete netwatcher-agent
-echo netsh advfirewall firewall delete rule name="NetWatcher ICMP In"
-echo netsh advfirewall firewall delete rule name="NetWatcher ICMP Out"
-echo del "%installDir%\netwatcher-agent.exe"
-echo del "%libDir%\rperf_windows-x86_64.exe"
-echo del "%libDir%\trip_windows-x86_64.exe"
-echo rmdir "%libDir%"
-echo del "%installDir%\uninstaller.bat"
-echo echo Uninstallation complete.
-) > "%installDir%\uninstaller.bat"
+    echo HOST=%HOST%
+    echo HOST_WS=%HOST_WS%
+    echo ID=%ID%
+    echo PIN=%PIN%
+) > "%installDir%\config.conf"
+
+:: Add firewall rules for ICMP in and out for netwatcher
+echo Creating the firewall rules for ICMP...
+netsh advfirewall firewall add rule name="NetWatcher ICMP In" protocol=icmpv4:8,any dir=in action=allow
+netsh advfirewall firewall add rule name="NetWatcher ICMP Out" protocol=icmpv4:any,any dir=out action=allow
+
+echo Creating the NetWatcher Agent service...
+:: Add the program as a service that starts automatically
+sc create netwatcher-agent binPath= "%installDir%\netwatcher-agent.exe" start= auto
+
+echo Creating start.bat file...
+:: Create start.bat file
+(
+    @echo off
+	cd C:\netwatcher-agent\
+	echo Starting NetWatcher Agent...
+	"C:\netwatcher-agent\netwatcher-agent.exe"
+) > "%installDir%\start.bat"
 
 echo Installation and configuration completed.
+pause
