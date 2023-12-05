@@ -81,17 +81,46 @@ netsh advfirewall firewall add rule name="NetWatcher ICMP In" protocol=icmpv4:8,
 netsh advfirewall firewall add rule name="NetWatcher ICMP Out" protocol=icmpv4:any,any dir=out action=allow
 
 echo Creating the NetWatcher Agent service...
-:: Add the program as a service that starts automatically
-sc create netwatcher-agent binPath= "%installDir%\netwatcher-agent.exe" start= auto
+:: Add the program as a service that starts automatically and runs start.bat
+sc create netwatcher-agent binPath= "cmd /c %installDir%\start.bat" start= demand
 
 echo Creating start.bat file...
 :: Create start.bat file
 (
     @echo off
-	cd C:\netwatcher-agent\
-	echo Starting NetWatcher Agent...
-	"C:\netwatcher-agent\netwatcher-agent.exe"
+    cd %installDir%
+    echo Starting NetWatcher Agent...
+    net start netwatcher-agent
 ) > "%installDir%\start.bat"
+
+echo Creating start.bat file...
+:: Create start.bat file
+(
+    @echo off
+    cd %installDir%
+    echo Stopping NetWatcher Agent...
+    net stop netwatcher-agent
+) > "%installDir%\stop.bat"
+
+echo Creating uninstall.bat file...
+(
+    @echo off
+	echo Uninstalling NetWatcher Agent...
+	net stop netwatcher-agent
+	sc delete netwatcher-agent
+	del "%installDir%\netwatcher-agent.exe"
+	del "%installDir%\config.conf"
+	del "%installDir%\start.bat"
+	del "%installDir%\stop.bat"
+	rmdir "%installDir%\lib" /s /q
+	rmdir "%installDir%" /s /q
+
+	echo Removing firewall rules for ICMP...
+	netsh advfirewall firewall delete rule name="NetWatcher ICMP In" protocol=icmpv4:8,any dir=in
+	netsh advfirewall firewall delete rule name="NetWatcher ICMP Out" protocol=icmpv4:any,any dir=out
+
+	echo Uninstallation completed.
+) > "%installDir%\stop.bat"
 
 echo Installation and configuration completed.
 pause
